@@ -4,11 +4,11 @@ import json
 import sqlite3
 
 
-# download file
+# Downloads file from a URL and saves it
 def download_file(url, destination):
     try:
         response = requests.get(url)
-        response.raise_for_status()  # error
+        response.raise_for_status()  # Error for unsuccessful status codes
         with open(destination, 'wb') as file:
             file.write(response.content)
         print(f"File downloaded successfully: {destination}")
@@ -18,7 +18,7 @@ def download_file(url, destination):
         return None
 
 
-# load CSV files
+# Loads data from CSV and turns it into a list of dictionary
 def load_csv(file_path):
     try:
         with open(file_path, mode='r') as file:
@@ -29,7 +29,7 @@ def load_csv(file_path):
         return None
 
 
-# load JSON files
+# Loads data from JSON file and turns it into a dictionary
 def load_json(file_path):
     try:
         with open(file_path, mode='r') as file:
@@ -39,18 +39,18 @@ def load_json(file_path):
         return None
 
 
-# fetch data from API
+# Fetches JSON data from an API endpoint
 def fetch_data_from_api(api_url):
     try:
         response = requests.get(api_url)
-        response.raise_for_status()  # error
-        return response.json()  # Assuming the API returns data in JSON format
+        response.raise_for_status()  # Error for unsuccessful status codes
+        return response.json()  # Assumes the API returns data in JSON format
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data from API: {e}")
         return None
 
 
-# Function to save data as CSV
+# Function to save data as CSV to specified path
 def save_as_csv(data, file_path):
     try:
         if len(data) == 0:
@@ -66,7 +66,7 @@ def save_as_csv(data, file_path):
         print(f"Error saving CSV: {e}")
 
 
-# Function to save data as JSON
+# Function to save data as JSON to specified path
 def save_as_json(data, file_path):
     try:
         with open(file_path, mode='w') as file:
@@ -103,12 +103,47 @@ def print_summary(data, title):
     if data is None or len(data) == 0:
         print(f"No data available for {title}.")
         return
+
+    # Number of records and columns
     num_records = len(data)
     num_columns = len(data[0].keys()) if num_records > 0 else 0
     print(f"{title} - Records: {num_records}, Columns: {num_columns}")
 
+    # Column names and types
+    column_types = {key: type(value).__name__ for key, value in data[0].items()}
+    print("Column Names and Types:")
+    for col, col_type in column_types.items():
+        print(f"  - {col}: {col_type}")
 
-# Extended ETL processor to handle file and API data sources
+    # Display a sample of the first 3 rows
+    print("\nSample Records (First 3 Rows):")
+    for i, row in enumerate(data[:3], start=1):
+        print(f"  Record {i}: {row}")
+
+    # Check for missing values in each column
+    print("\nMissing Values by Column:")
+    missing_values = {
+        col: sum(1 for row in data if row.get(col) is None or row.get(col) == '')
+        for col in data[0].keys()
+    }
+    for col, missing in missing_values.items():
+        print(f"  - {col}: {missing} missing values")
+
+
+    # Basic statistics for numeric columns
+    print("\nBasic Statistics for Numeric Columns:")
+    for col in data[0].keys():
+        # Check if the column is numeric
+        numeric_data = [row.get(col) for row in data if isinstance(row.get(col), (int, float))]
+        if numeric_data:
+            mean_val = sum(numeric_data) / len(numeric_data)
+            min_val = min(numeric_data)
+            max_val = max(numeric_data)
+            stddev_val = (sum((x - mean_val) ** 2 for x in numeric_data) / len(numeric_data)) ** 0.5
+            print(f"  - {col}: Mean={mean_val}, Min={min_val}, Max={max_val}, StdDev={stddev_val}")
+
+
+# Main ETL Processor
 def etl_processor(input_source, output_format, add_columns=None, remove_columns=None, save_destination=None,
                   is_api=False):
     # Step 1: Load the input data (from URL, local CSV, JSON, or API)
@@ -118,7 +153,7 @@ def etl_processor(input_source, output_format, add_columns=None, remove_columns=
         if data is None:
             return
     elif input_source.startswith('http'):
-        # Remote URL (assumes CSV or JSON files from URLs)
+        # Load from remote URL (assumes CSV or JSON files from URLs)
         file_extension = input_source.split('.')[-1]
         local_file = download_file(input_source, f"downloaded_file.{file_extension}")
         if local_file is None:
@@ -131,7 +166,7 @@ def etl_processor(input_source, output_format, add_columns=None, remove_columns=
             print("Unsupported file format.")
             return
     else:
-        # Local file path
+        # Load from local file path
         if input_source.endswith('.csv'):
             data = load_csv(input_source)
         elif input_source.endswith('.json'):
@@ -144,12 +179,22 @@ def etl_processor(input_source, output_format, add_columns=None, remove_columns=
     print_summary(data, "Pre-Processing Data Summary")
 
     # Step 3: Modify columns if required
+    if data is None:
+        print("Error: No data available for column modification. Please check the data source.")
+        return
     if remove_columns:
-        data = [{key: row[key] for key in row if key not in remove_columns} for row in data]
+        try:
+            data = [{key: row[key] for key in row if key not in remove_columns} for row in data]
+        except KeyError as e:
+            print(f"Error during column removal: {e}. Please ensure columns to remove exist in the data.")
+
     if add_columns:
-        for row in data:
-            for col, val in add_columns.items():
-                row[col] = val
+        try:
+            for row in data:
+                for col, val in add_columns.items():
+                    row[col] = val
+        except TypeError as e:
+            print(f"Error during column addition: {e}. Ensure the data is in the correct format.")
 
     # Step 4: Convert and save the data in the desired format
     if output_format == 'csv':
@@ -175,11 +220,11 @@ def etl_processor(input_source, output_format, add_columns=None, remove_columns=
 # Example usage
 if __name__ == '__main__':
     # Example for local CSV file usage
-    input_source = 'squirrel-data.csv'  # Path to local CSV file
+    input_source = 'data.csv'  # Path to local CSV file
     output_format = 'json'  # Desired output format: csv, json, or sqlite
     add_columns = {'source': 'squirrel_census'}  # Add a new column
-    remove_columns = ['X', 'Y']  # Remove columns as needed
-    save_destination = 'processed_squirrel_data.json'  # Output file destination
+    remove_columns = []  # Remove columns as needed
+    save_destination = 'processed_data.json'  # Output file destination
     etl_processor(input_source, output_format, add_columns, remove_columns, save_destination)
 
     # Example for API usage
