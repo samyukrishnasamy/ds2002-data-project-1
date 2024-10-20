@@ -39,17 +39,6 @@ def load_json(file_path):
         return None
 
 
-# Fetches JSON data from an API endpoint
-def fetch_data_from_api(api_url):
-    try:
-        response = requests.get(api_url)
-        response.raise_for_status()  # Error for unsuccessful status codes
-        return response.json()  # Assumes the API returns data in JSON format
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching data from API: {e}")
-        return None
-
-
 # Function to save data as CSV to specified path
 def save_as_csv(data, file_path):
     try:
@@ -129,23 +118,18 @@ def print_summary(data, title):
     for col, missing in missing_values.items():
         print(f"  - {col}: {missing} missing values")
 
-
-    # Basic statistics for numeric columns
-    print("\nBasic Statistics for Numeric Columns:")
-    for col in data[0].keys():
-        # Check if the column is numeric
-        numeric_data = [row.get(col) for row in data if isinstance(row.get(col), (int, float))]
-        if numeric_data:
-            mean_val = sum(numeric_data) / len(numeric_data)
-            min_val = min(numeric_data)
-            max_val = max(numeric_data)
-            stddev_val = (sum((x - mean_val) ** 2 for x in numeric_data) / len(numeric_data)) ** 0.5
-            print(f"  - {col}: Mean={mean_val}, Min={min_val}, Max={max_val}, StdDev={stddev_val}")
-
+# Fetches JSON data from an API endpoint
+def fetch_data_from_api(api_url):
+    try:
+        response = requests.get(api_url)
+        response.raise_for_status()  # Error for unsuccessful status codes
+        return response.json()  # Assumes the API returns data in JSON format
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching data from API: {e}")
+        return None
 
 # Main ETL Processor
-def etl_processor(input_source, output_format, add_columns=None, remove_columns=None, save_destination=None,
-                  is_api=False):
+def etl_processor(input_source, add_columns=None, remove_columns=None, save_destination=None, is_api=False):
     # Step 1: Load the input data (from URL, local CSV, JSON, or API)
     if is_api:
         # Fetch data from an API
@@ -196,7 +180,10 @@ def etl_processor(input_source, output_format, add_columns=None, remove_columns=
         except TypeError as e:
             print(f"Error during column addition: {e}. Ensure the data is in the correct format.")
 
-    # Step 4: Convert and save the data in the desired format
+    # Step 4: Ask user for desired output format
+    output_format = input("Choose output format (csv, json, sqlite): ").strip().lower()
+
+    # Step 5: Convert and save the data in the desired format
     if output_format == 'csv':
         if save_destination is None:
             save_destination = 'output_data.csv'
@@ -213,23 +200,14 @@ def etl_processor(input_source, output_format, add_columns=None, remove_columns=
         print("Unsupported output format.")
         return
 
-    # Step 5: Print summary of the post-processing data
+    # Step 6: Print summary of the post-processing data
     print_summary(data, "Post-Processing Data Summary")
 
 
 # Example usage
 if __name__ == '__main__':
-    # Example for local CSV file usage
-    input_source = 'data.csv'  # Path to local CSV file
-    output_format = 'json'  # Desired output format: csv, json, or sqlite
-    add_columns = {'source': 'squirrel_census'}  # Add a new column
+    input_source = 'output_data.json'  # Path to local CSV file
+    add_columns = {'source': 'movies'}  # Add a new column
     remove_columns = []  # Remove columns as needed
-    save_destination = 'processed_data.json'  # Output file destination
-    etl_processor(input_source, output_format, add_columns, remove_columns, save_destination)
-
-    # Example for API usage
-    api_url = 'https://api.github.com/repos/pandas-dev/pandas/issues'  # Example API (GitHub)
-    output_format = 'json'  # Desired output format for API data
-    save_destination = 'github_issues.json'  # Destination for saving the API data
-    etl_processor(api_url, output_format, add_columns=None, remove_columns=None, save_destination=save_destination,
-                  is_api=True)
+    save_destination = None  # Output file destination
+    etl_processor(input_source, add_columns, remove_columns, save_destination)
