@@ -206,8 +206,16 @@ def etl_processor(input_source, add_columns=None, remove_columns=None, save_dest
 
 # Example usage
 if __name__ == '__main__':
-    input_source = 'output_data.json'  # Path to local CSV file
-    add_columns = {'source': 'movies'}  # Add a new column
-    remove_columns = []  # Remove columns as needed
-    save_destination = None  # Output file destination
+    input_source = 'data.json'
+    add_columns = {'source': 'movies'}
+    remove_columns = []
+    save_destination = None
     etl_processor(input_source, add_columns, remove_columns, save_destination)
+
+
+# if __name__ == '__main__':
+#     input_source = 'data.csv'
+#     add_columns = {'source': 'movies'}
+#     remove_columns = []
+#     save_destination = None
+#     etl_processor(input_source, add_columns, remove_columns, save_destination)
